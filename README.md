@@ -77,10 +77,106 @@
    3. Thread::start()中的引用捕获`[&]`:
       1. 引用捕获的变量必须在lambda使用期间保持有效。否则，可能会导致悬空引用问题
       2. 在lambda内部对这些变量的修改会直接影响外部变量的值。
-## EventLoopThread.h
-## EventLoopThread.cc
-## EventLoopThreadPool.h
-## EventLoopThreadPool.cc
+   4. `std::atomic_int32_t Thread::numCreated_{0};`的初始化方式，注意赋值运算符。
+## EventLoopThread.h: 作用是？
+   1. `void start(const ThreadInitCallback& cb = ThreadInitCallback());`中形参使用默认参数的好处？
+      - 通过给cb设置默认实参`ThreadInitCallback()`，可以实现更简洁的函数调用，并让调用者选择是否传入回调函数。当没有传入回调时，cb是空的，你可以在函数内部检查它是否为空来决定是否执行回调。
+      ```cpp
+      void f(const Func& cb = Func()) {
+         if(cb) {
+            cb();    // 如果cb不为空，则调用它
+         }
+         else {
+                     // cb为空，可以采取其他措施或什么都不做。
+         }
+      }
+      ```
+## EventLoopThread.cc: ?
+1. EventLoop* EventLoopThread::startLoop()中使用unique_lock，它支持解锁，而lock_guard不支持手动加/解锁。
+2. `void EventLoopThread::threadFunc()`这个函数将sub Reactor中栈上对象loop的地址暴露给main Reactor。
+   ```cpp
+   #include <thread>
+   #include <iostream>
+   #include <functional>
+
+   using Func = std::function<void()>;
+
+   Func func = Func(); // func is empty
+
+   class Foo {
+      public:
+         Foo(int* pval = nullptr)  
+         : pval_(pval) {
+               func = std::bind(&Foo::f, this); // func is not empty
+         }
+
+         int* getPointer() const { return pval_; }
+         
+         void f() {
+               std::this_thread::sleep_for(std::chrono::seconds(1)); 
+
+               int val = 100;  // the value in stack of thread
+               std::cout << "finish." << std::endl;
+               pval_ = &val;
+         }
+
+      private:
+         int *pval_;
+   };
+
+
+   void worker() {
+      while(!func) {
+         std::cout << "func is empty" << std::endl;
+         std::this_thread::sleep_for(std::chrono::seconds(1)); 
+      }
+
+      // 通过将func绑定到Foo的成员函数上，将该线程的数据通过Foo对象传递到其他线程
+      func();
+   }
+   int main() {
+      std::thread t(worker);
+      std::this_thread::sleep_for(std::chrono::seconds(2)); 
+
+      Foo f;
+      std::cout << f.getPointer() << std::endl;
+
+      std::this_thread::sleep_for(std::chrono::seconds(2)); 
+      std::cout << f.getPointer() << std::endl;
+
+      t.join();
+
+      return 0;
+   }
+
+   /**
+      g++ -o main main.cc -pthread
+      func is empty
+      func is empty
+      0
+      finish.
+      0x7f3d72559cd0
+    */ 
+
+   ```
+   类似于这里将main函数中的栈上对象f暴露给新创建
+## EventLoopThreadPool.h: 看注释
+## EventLoopThreadPool.cc: 看注释
+
+## Socket.h
+## Socket.cc
+
+## Acceptor.h
+## Acceptor.cc
+1. `idleFd_(::open("/dev/null", O_RDONLY|O_CLOEXEC))`的作用是防止文件描述符耗尽
+2. ```cpp
+   if(errno == EMFILE) {
+      ::close(idleFd_);
+      idleFd_ = ::accept(acceptSocket_.fd(), NULL, NULL);
+      ::close(idleFd_);
+      idleFd_ = ::open("/dev/null", O_RDONLY | O_CLOEXEC);
+   }
+   ```
 
 ## TcpServer.h
 ## TcpServer.cc

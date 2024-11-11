@@ -8,7 +8,7 @@ class InetAddress : public copyable {
     public:
         // Constructs an endpoint with given port number.
         // Mostly used in TcpServer listening.
-        explicit InetAddress(uint16_t port, std::string ip = "127.0.0.1");
+        explicit InetAddress(uint16_t port = 0, std::string ip = "127.0.0.1");
 
         // Constructs an endpoint with given ip and port number.
         // explicit InetAddress(std::string& ip, uint16_t port, bool ipv6 = false);
@@ -18,14 +18,20 @@ class InetAddress : public copyable {
         explicit InetAddress(const struct sockaddr_in& addr) : addr_(addr) {
         }
 
+        sa_family_t family() const { return addr_.sin_family; }
         std::string toIp() const;
         std::string toIpPort() const;
         uint16_t toPort() const;
 
-        // const struct sockaddr* getSockAddr() const { return static_cast<const struct sockaddr*>(reinterpret_cast<const void*>(&addr_)); }
+        // const sockaddr* getSockAddr() const { 
+        //     return reinterpret_cast<const sockaddr*>(&addr_); 
+        // }
+        // void Socket::bindAddress(const InetAddress& localaddr) 不兼容
         const sockaddr_in* getSockAddr() const {
             return &addr_;
         }
+
+        void setSockAddr(const sockaddr_in& addr) { addr_ = addr; }
 
     private:
         struct sockaddr_in addr_;

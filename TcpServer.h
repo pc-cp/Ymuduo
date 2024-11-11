@@ -1,4 +1,5 @@
-#pragma
+#pragma once
+
 
 class TcpServer {
 
