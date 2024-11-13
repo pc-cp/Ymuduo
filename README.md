@@ -179,4 +179,67 @@
    ```
 
 ## TcpServer.h
+1. `std::atomic_int32_t started_;`作用是？
+   1. // 原子操作，让Tcp::start()只在第一次被调用时进行初始化
 ## TcpServer.cc
+1. 在`void TcpServer::newConnection(int sockfd, const InetAddress& peerAddr)`中`sockets::getLocalAddr(sockfd)`里调用`::getsockname(sockfd, sockaddr_cast(&localaddr), &addrlen)`其返回socket sockfd当前绑定的地址。
+   1. 注意sockfd是accept函数返回的通信socket对应的文件描述符。所以也就是该通信socket绑定的是本地地址
+   2. > The  accept() system call is used with connection-based socket types (SOCK_STREAM, SOCK_SEQPACKET).  It extracts the first connection request on the queue of pending connections for the listening socket, sockfd, creates a new connected socket, and  returns  a new file descriptor referring to that socket.  The newly created socket is not in the listening state.  The original socket sockfd is unaffected by this call.
+   3. 结合后续和client进行I/O时也是通过该通信sockfd进行的，所以其绑定的是本地地址似乎也是情理之中。
+   4. GPT: 即使 accept() 返回的 socket 描述符是一个连接的 socket，这个 socket 仍然与原来监听的 socket 绑定在同一个本地地址上。它仍然使用原来监听 socket 的本地地址和端口进行通信。也就是说，新创建的 socket 的本地地址是监听 socket 的地址，**只是它不再处于监听状态，而是专门用于该连接的通信。**
+   5. **这个函数的逻辑说白了就是accept到connfd怎么处理**
+## Buffer.h
+## Buffer.cc
+1. `const ssize_t n = ::readv(fd, vec, iovcnt);`这个函数调用比较新颖，继read、recv之外。它提供了多个额外的栈上缓冲区来接收数据。缓解堆上缓冲区较小的问题。
+
+## TcpConnection.h
+1. 公有继承`public enable_shared_from_this<T>`
+   1. 公有继承`public enable_shared_from_this<T>`，能够让类T具有成员函数`shared_from_this()`。它能够安全的返回指向当前对象的shared_ptr。而明显的技术"shared_ptr<T>(this)"会造成多个shared_ptr指向同一个对象，但它们的引用计数会失效。
+   2. ```cpp
+      #include <iostream>
+      #include <memory>
+
+      class Foo : public std::enable_shared_from_this<Foo> {
+         public:
+            std::shared_ptr<Foo> getPtr() {
+                  return shared_from_this();   
+                  // return std::shared_ptr<Foo>(this); // free(): double free detected in tcache 2
+            }
+            ~Foo() {
+                  std::cout << "Good::~Good() called" << std::endl;
+            }
+      };
+
+      int main() {
+         {
+            std::shared_ptr<Foo> sp1(new Foo());
+            std::shared_ptr<Foo> sp2 = sp1->getPtr();
+
+            std::cout << sp1.use_count() << std::endl;
+            std::cout << sp2.use_count() << std::endl;
+         }
+      }
+      ```
+   3. [what-is-the-usefulness-of-enable-shared-from-this](https://stackoverflow.com/questions/712279/what-is-the-usefulness-of-enable-shared-from-this)
+   4. [利用std::enable_shared_from_this实现异步调用中的保活机制](https://blog.csdn.net/caoshangpa/article/details/79392878)
+## TcpConnection.cc
+1. ` TcpConnection::handleWrite()`中` loop_->queueInLoop(std::bind(writeCompleteCallback_, shared_from_this()));`？
+   1. // 这里可以用runInLoop?
+      // 个人认为这里肯定不是为了让!isInLoopThread()成立，
+      // 而是这个writeCompleteCallback_不是当前要紧事，所以放在pendingFunctors_，反正每次loop.loop都是会执行的
+      loop_->queueInLoop(std::bind(writeCompleteCallback_, shared_from_this()));
+2. `TcpConnection::connectEstablished()`中`channel_->tie(shared_from_this());`意义何在？？   
+   1. 用一个强指针shared_ptr指向channel对应的conn，保证conn存活。
+   2. ```cpp
+      if(tied_) {
+         std::shared_ptr<void> guard = tie_.lock();
+         if(guard) {
+               handleEventWithGuard(receiveTime);
+         }
+      }
+      else {
+         handleEventWithGuard(receiveTime);
+      }
+      ```
+      这里如果conn被remove，那么conn管理的channel将不再执行conn提供的回调。
+3. `void TcpConnection::shutdownInLoop()`与EPOLLHUP的关系

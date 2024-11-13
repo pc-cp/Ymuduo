@@ -4,12 +4,16 @@
 #include "noncopyable.h"
 #include "Timestamp.h"
 #include <stdlib.h>
+
+const char* strerror_tl(int savedErrno);
+
 /**
  * LOG_INFO("%s %d", arg1, arg2)
  * ... 是一个可变参数宏(variadic macro)的写法，允许这个宏接受不定数量的参数。
  * __VA_ARGS__ 是一个预定义的宏，代表传递给...的实际参数。前面的##作用是去除可变参数为空的情况下
  * ##__VA_ARGS__会去除多余的逗号。 
  * */
+
 
 #define LOG_INFO(logmsgFormat, ...)                         \
     do                                                      \

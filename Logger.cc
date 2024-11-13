@@ -1,5 +1,13 @@
 #include "Logger.h"
 #include <iostream>
+#include "string.h"
+
+__thread char t_errnobuf[512];
+__thread char t_time[64];
+
+const char* strerror_tl(int savedErrno) {
+    return strerror_r(savedErrno, t_errnobuf, sizeof t_errnobuf);
+}
 
 Logger& Logger::instance() {
     static Logger logger;

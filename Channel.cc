@@ -58,7 +58,7 @@ void Channel::handleEvent(Timestamp receiveTime) {
 void Channel::handleEventWithGuard(Timestamp receiveTime) {
     
     LOG_INFO("channel handleEvent revents: %d\n", revents_);
-    if((revents_ & EPOLLHUP) && !(revents_ & EPOLLIN)) {
+    if((revents_ & EPOLLHUP) && !(revents_ & EPOLLIN)) { // 本地关闭写端
         if(closeCallback_) {
             closeCallback_();
         }
