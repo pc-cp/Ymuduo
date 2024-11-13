@@ -4,6 +4,15 @@
 #include "Logger.h"
 #include <unistd.h>
 #include "EventLoop.h"
+
+void defaultConnectionCallback(const TcpConnectionPtr& conn) {
+    LOG_INFO("%s -> %s is %s\n", conn->localAddress().toIpPort().c_str(), conn->peerAddress().toIpPort().c_str(), (conn->connected() ? "UP" : "DOWN"));
+}
+
+void defaultMessageCallback(const TcpConnectionPtr& conn, Buffer* buffer, Timestamp receiveTime) {
+    buffer->retrieveAll();
+}
+
 static EventLoop* checkLoopNotNull(EventLoop *loop) {
     if(loop == nullptr) {
         LOG_FATAL("%s:%s:%d mainLoop is null! \n", __FILE__, __FUNCTION__, __LINE__);

@@ -3,6 +3,20 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <netinet/in.h>
+#include <endian.h>
+static const in_addr_t kInaddrAny = INADDR_ANY;
+static const in_addr_t kInaddrLoopback = INADDR_LOOPBACK;
+
+InetAddress::InetAddress(uint16_t port, bool loopbackOnly) {
+    bzero(&addr_, sizeof addr_);
+    addr_.sin_family = AF_INET;
+    addr_.sin_port = htons(port);
+    
+    in_addr_t ip = loopbackOnly ? kInaddrLoopback : kInaddrAny;
+    addr_.sin_addr.s_addr = htonl(ip);
+    addr_.sin_port = htons(port);
+}
 
 InetAddress::InetAddress(uint16_t port, std::string ip) {
     bzero(&addr_, sizeof addr_);

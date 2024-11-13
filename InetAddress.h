@@ -8,6 +8,13 @@ class InetAddress : public copyable {
     public:
         // Constructs an endpoint with given port number.
         // Mostly used in TcpServer listening.
+        /**
+         * 如果两个构造函数都可以匹配，但其中一个构造函数不依赖默认参数来完成匹配，编译器会优先选择这个构造函数。
+         * 这样可以减少歧义，避免编译器对调用意图的错误推测。
+         * 
+         * InetAddress addr(8080); 匹配第一个ctor
+         */
+        explicit InetAddress(uint16_t port, bool loopbackOnly = false);
         explicit InetAddress(uint16_t port = 0, std::string ip = "127.0.0.1");
 
         // Constructs an endpoint with given ip and port number.
